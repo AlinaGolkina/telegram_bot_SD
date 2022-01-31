@@ -13,5 +13,6 @@ https://t.me/Quizy_Quiz_Bot
 - /statistic - shows user's statistic by correct and wrong answers
 - /leaderboard - Top 5 best players
 # Structure:
-quiz_total5.csv - questions from https://baza-otvetov.ru/
+quiz_total5.csv - questions from https://baza-otvetov.ru/ 
+
 bot_quiz_MSAI.py - telegram bot creation
