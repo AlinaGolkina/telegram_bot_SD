@@ -183,7 +183,6 @@ def receive_quiz_answer(update: Update, context: CallbackContext) -> None:
             log.wrong+=1
 
 def leaderboard(update: Update, context: CallbackContext):
-    # выводим топ-5 игроков
     with db_session:
         q1 = select(q for q in Statistic).order_by(desc(Statistic.correct))[:]
     update.message.reply_text(
@@ -197,7 +196,6 @@ def stat(update: Update, context: CallbackContext):
     update.message.reply_text(f'Статистика ответов: \n\n Правильных ответов: {q1.correct} \n Неправильных ответов:  {q1.wrong}')
         
 def message(update: Update, context: CallbackContext):
-    # если пользователь ввел некорректную команду, выводим сообщение
     update.message.reply_text("Вы ввели некорректную команду. Используйте команду /start, /next, /choose_subject для продолжения игры или выберите кнопки меню")
         
 def help_handler(update: Update, context: CallbackContext) -> None:
