@@ -10,3 +10,5 @@ https://t.me/Quizy_Quiz_Bot
 - /next - to continue the quiz with choosen topic
 - /statistic - shows user's statistic by correct and wrong answers
 - /leaderboard - Top 5 best players
+# Structure:
+quiz
