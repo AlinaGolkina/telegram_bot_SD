@@ -1,5 +1,7 @@
 # Quiz bot - MSAI project, Software Development, 1 semester
-## used ORM
+## used data:
+questions from https://baza-otvetov.ru/
+## used ORM:
 https://docs.ponyorm.org/
 ## Link to the telegram bot:
 https://t.me/Quizy_Quiz_Bot
@@ -11,4 +13,5 @@ https://t.me/Quizy_Quiz_Bot
 - /statistic - shows user's statistic by correct and wrong answers
 - /leaderboard - Top 5 best players
 # Structure:
-quiz
+quiz_total5.csv - questions from https://baza-otvetov.ru/
+bot_quiz_MSAI.py - telegram bot creation
