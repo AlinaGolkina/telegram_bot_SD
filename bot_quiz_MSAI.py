@@ -193,7 +193,7 @@ def leaderboard(update: Update, context: CallbackContext):
 def stat(update: Update, context: CallbackContext):
     # Выводим статистику ответов пользователя
     with db_session:
-        q1 = select(q for q in Statistic if q.login==str(update.message.chat['id']))[:][0]
+        q1 = select(q for q in Statistic if q.login==str(update.message.chat['username']))[:][0]
     update.message.reply_text(f'Статистика ответов: \n\n Правильных ответов: {q1.correct} \n Неправильных ответов:  {q1.wrong}')
         
 def message(update: Update, context: CallbackContext):
