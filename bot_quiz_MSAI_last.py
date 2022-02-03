@@ -4,8 +4,13 @@ import random
 import pandas as pd
 from pony.orm import *
 
+token = None
+with open('token.txt') as f:
+    token = f.read().strip()
+
 # будем использовать Pony ORM
 db = Database()
+
 
 # создаем entities БД для таблицы со статистикой и викториной
 class Statistic(db.Entity):
@@ -13,7 +18,8 @@ class Statistic(db.Entity):
     correct = Required(int)
     wrong = Required(int)
     cur_subject = Required(str)
-    
+
+
 class Quiz(db.Entity):
     subject = Required(str)
     question = Required(str)
@@ -22,6 +28,7 @@ class Quiz(db.Entity):
     answer3 = Required(str)
     answer4 = Required(str)
     correct = Required(str)
+
 
 db.bind(provider='sqlite', filename=r'C:\Users\alina\database.sqlite11', create_db=True)
 
@@ -34,9 +41,17 @@ quiz = quiz.astype('str')
 quiz.head()
 
 # загружаем викторину в БД и делаем commit()
-# for i, question in quiz.iterrows():
-#    q = Quiz(question=question['question'], subject=question['Subject'], answer1=str(question['answer1']), answer2=str(question['answer2']), answer3=str(question['answer3']), answer4=str(question['answer4']), correct = str(question['Correct_answer'] ))
-#    commit()
+for i, q in quiz.iterrows():
+    quiz = Quiz(
+                question = q['question'],
+                subject = q['Subject'], 
+                answer1 = str(q['answer1']),
+                answer2 = str(q['answer2']), 
+                answer3 = str(q['answer3']), 
+                answer4 = str(q['answer4']), 
+                correct = str(q['Correct_answer'] )
+                )
+    commit()
 
 # создаем бота для игры - викторины
 import logging
@@ -50,7 +65,7 @@ from telegram.ext import Filters, Updater, CommandHandler, PollAnswerHandler, Po
 
 def start(update: Update, context: CallbackContext) -> None:
     # Выводим приветствие с описанием команд бота
-    update.message.reply_text(f"Привет, {update.message.chat.username} ! Это интелектуальная игра - викторина! Для выбора темы викторины, нажми /choose_subject, для продолжения викторины на выбранную тему жми /next, для просмотра статистики по ответам жми /statistic !  Удачи!")
+    update.message.reply_text(f"Привет, {update.message.chat.username} ! Это интеллектуальная игра - викторина! Для выбора темы викторины, нажми /choose_subject, для продолжения викторины на выбранную тему жми /next, для просмотра статистики по ответам жми /statistic !  Удачи!")
     
     # Создаем настраиваемую клавиатуру с кнопками 
     button_list1 = [KeyboardButton("/start", callback_data='/start'),
@@ -86,6 +101,7 @@ def buttons():
     # отправка клавиатуры в чат
     return reply_markup
 
+
 def choose_subject(update: Update, context: CallbackContext) -> None:
    
     # отправка клавиатуры для выбора темы викторины в чат'''
@@ -100,8 +116,22 @@ def build_menu(buttons, n_cols,
             menu.insert(0, [header_buttons])
         if footer_buttons:
             menu.append([footer_buttons])
-        return menu    
-    
+        return menu
+
+
+def quiz_from_db(variant):
+    # вытаскиваем из БД случайный вопрос на выбранную пользователем тему
+    with db_session:
+        q1 = select(q for q in Quiz if q.subject == variant)[:]
+        q = select(q for q in Quiz if q.subject == variant)[:][random.randint(0,len(q1))]
+        
+    question = q.question
+    questions = [q.answer1, q.answer2, q.answer3, q.answer4]
+    correct = q.correct
+    correct_id = questions.index(correct)
+    return question, questions, correct_id
+
+
 def quiz_subject(update: Update, context: CallbackContext) -> None: #(update, _):
 
     # получаем выбранную пользователем тему для викторины
@@ -110,19 +140,10 @@ def quiz_subject(update: Update, context: CallbackContext) -> None: #(update, _)
 
     query.edit_message_text(text=f"Выбранный вариант: {variant}")   
  
-    # вытаскиваем из БД случайный вопрос на выбранную пользователем тему
-    with db_session:
-        q1 = select(q for q in Quiz if q.subject == variant)[:]
-        q = select(q for q in Quiz if q.subject == variant)[:][random.randint(0,len(q1))]
-        
-    questions = [q.answer1, q.answer2, q.answer3, q.answer4]
-    correct = q.correct
-    correct_id = questions.index(correct)
-    
+    question, questions, correct_id = quiz_from_db(variant)
     #  запускаем викторину
     message = update.effective_message.reply_poll(
-        q.question, questions, type=Poll.QUIZ, correct_option_id=correct_id)
-    
+        question, questions, type=Poll.QUIZ, correct_option_id=correct_id)
     # смотрим заведен ли это пользоватеь в таблицу БД со статистикой, если нет- то создаем его,
     # если заведен,  то обновляем его текущую выбранную тему
     with db_session:
@@ -136,33 +157,24 @@ def quiz_subject(update: Update, context: CallbackContext) -> None: #(update, _)
     # заводим информацию для дальнейшей обработки ответа
     payload = {"chat_id": update.effective_chat.id, "username":update.effective_chat.username}
     context.bot_data.update(payload)
-    
+
     
 def quiz_next(update: Update, context: CallbackContext) -> None: #(update, _):
     
     with db_session:
         if len(select(q for q in Statistic if q.login == str(context.bot_data['chat_id']))[:])==0:
-            variant ='Разное'
+            variant = 'Разное'
         else:
             q = select(q for q in Statistic if q.login == str(context.bot_data['chat_id']))[:][0]
             variant = q.cur_subject
-    # вытаскиваем случайный вопрос из БД
-    with db_session:
-        q1 = select(q for q in Quiz if q.subject == variant)[:]
-        q = select(q for q in Quiz if q.subject == variant)[:][random.randint(0,len(q1))]
-        
-    questions = [q.answer1, q.answer2, q.answer3, q.answer4]
-    correct = q.correct
-    correct_id = questions.index(correct)
-    
-    # запускаем викторину
+    question, questions, correct_id = quiz_from_db(variant)
+    #  запускаем викторину
     message = update.effective_message.reply_poll(
-        q.question, questions, type=Poll.QUIZ, correct_option_id=correct_id)
-    
+        question, questions, type=Poll.QUIZ, correct_option_id=correct_id)question, questions, correct_id = quiz_from_db(variant)
     # заводим информацию для дальнейшей обработки ответа
     payload = { "chat_id": update.effective_chat.id, "username": update.effective_chat.username}
     context.bot_data.update(payload)
-    
+
     
 def receive_quiz_answer(update: Update, context: CallbackContext) -> None:
     # Проверяем есть ли статистика по этому пользователю в БД, если нет, заводим
@@ -178,11 +190,12 @@ def receive_quiz_answer(update: Update, context: CallbackContext) -> None:
     if update.poll.options[correct].voter_count == 1:
         with db_session:
             log = Statistic.get(login=str(context.bot_data['username']))
-            log.correct+=1
+            log.correct += 1
     else:
         with db_session:
             log = Statistic.get(login=str(context.bot_data['username']))
-            log.wrong+=1
+            log.wrong += 1
+
 
 def leaderboard(update: Update, context: CallbackContext):
     # выводим топ-5 игроков
@@ -190,26 +203,28 @@ def leaderboard(update: Update, context: CallbackContext):
         q1 = select(q for q in Statistic).order_by(desc(Statistic.correct))[:]
     update.message.reply_text(
         f'Топ 5 игроков: \n\n { q1[0].login}: {q1[0].correct}/{q1[0].wrong},\n {q1[1].login}: {q1[1].correct}/{q1[1].wrong},\n{q1[2].login}: {q1[2].correct}/{q1[2].wrong},\n{q1[3].login}: {q1[3].correct}/{q1[3].wrong},\n{q1[4].login}: {q1[4].correct}/{q1[4].wrong}')
-    
+
     
 def stat(update: Update, context: CallbackContext):
     # Выводим статистику ответов пользователя
     with db_session:
         q1 = select(q for q in Statistic if q.login==str(update.message.chat['username']))[:][0]
     update.message.reply_text(f'Статистика ответов: \n\n Правильных ответов: {q1.correct} \n Неправильных ответов:  {q1.wrong}')
-        
+
+
 def message(update: Update, context: CallbackContext):
     # если пользователь ввел некорректную команду, выводим сообщение
     update.message.reply_text("Вы ввели некорректную команду. Используйте команду /start, /next, /choose_subject для продолжения игры или выберите кнопки меню")
-        
+
+
 def help_handler(update: Update, context: CallbackContext) -> None:
     # выводим сообщение при нажатии /help
     update.message.reply_text("Выберите /choose_subject для выбора темы викторины, /next для продолжения викторины на выбранную тему, /statistics для простмотра статистики по ответам, /help если нужна помощь")
-    
+
 
 def main() -> None:
     # Create the Updater and pass it your bot's token.
-    updater = Updater("5232503148:AAHmq4oa0MvjInmvIC-Vn477_-D2GQx7VLg")
+    updater = Updater(token)
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CommandHandler('start', start))
     dispatcher.add_handler(CallbackQueryHandler(quiz_subject))
